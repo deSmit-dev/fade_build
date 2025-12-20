@@ -39,3 +39,10 @@
 
 # debug information files
 *.dwo
+
+# Ninja build files
+.ninja_log
+
+# Fade Framework specific ignores
+**/intermediate/*
+**/bin/*
