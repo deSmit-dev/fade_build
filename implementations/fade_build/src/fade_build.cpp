@@ -121,6 +121,7 @@ template <typename ArchiveType>
 bool Serialize(ArchiveType& in_archive, ModuleInterfaceConfiguration& in_out_module_interface_config)
     requires(fade::core::IsInputArchiveClass<ArchiveType>)
 {
+    ARCHIVE_PARAM(in_archive, in_out_module_interface_config, version);
     return true;
 }
 
@@ -144,14 +145,34 @@ bool Serialize(ArchiveType& in_archive, ModuleIncludeConfiguration& in_out_modul
  */
 struct ModuleConfiguration
 {
+    ModuleConfiguration() = default;
+    ModuleConfiguration(const ModuleConfiguration& in_rhs) = delete;
+    ModuleConfiguration(ModuleConfiguration&& in_rhs)
+    {
+        name = std::move(in_rhs.name);
+        description = std::move(in_rhs.description);
+        interface_config = std::move(in_rhs.interface_config);
+        include_config =  std::move(in_rhs.include_config);
+    }
+
+    ModuleConfiguration& operator=(const ModuleConfiguration& in_rhs) = delete;
+    ModuleConfiguration& operator=(ModuleConfiguration&& in_rhs)
+    {
+        name = std::move(in_rhs.name);
+        description = std::move(in_rhs.description);
+        interface_config = std::move(in_rhs.interface_config);
+        include_config =  std::move(in_rhs.include_config);
+        return *this;
+    }
+
     // The name of the module
     std::string name;
     // The description of the module
     std::string description;
     // The optional interface metadata of this module
-    std::shared_ptr<ModuleInterfaceConfiguration> interface_config;
+    std::unique_ptr<ModuleInterfaceConfiguration> interface_config;
     // The optional source metadata of this module
-    std::shared_ptr<ModuleIncludeConfiguration> include_config;
+    std::unique_ptr<ModuleIncludeConfiguration> include_config;
 };
 
 template <typename ArchiveType>
@@ -200,8 +221,21 @@ struct ModuleInterface
  */
 struct Module 
 {
+    Module() = default;
+    Module(const Module& in_rhs) = delete;
+    Module(Module&& in_rhs)
+    {
+        configuration = std::move(in_rhs.configuration);
+    }
+
+    Module& operator=(const Module& in_rhs) = delete;
+    Module& operator=(Module&& in_rhs)
+    {
+        configuration = std::move(in_rhs.configuration);
+        return *this;
+    }
+
     ModuleConfiguration configuration;
-    struct ModuleInterface interface;
 };
 
 namespace fade::core {
@@ -378,7 +412,7 @@ bool GatherFadeModules(const std::vector<std::filesystem::path>& in_fade_module_
                         continue;
                     }
 
-                    out_found_modules.push_back(module);
+                    out_found_modules.push_back(std::move(module));
                 }
             }
         }
