@@ -1,7 +1,11 @@
 {
   "name": "Fade Build",
   "description": "Build system generator for the Fade Framework",
-  "version": "0.0.1",
+  "version": {
+    "major": 0,
+    "minor": 0,
+    "revision": 1
+  },
 
   "entry_module_implementation": null,
 
