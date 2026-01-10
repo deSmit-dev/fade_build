@@ -1,5 +1,15 @@
 {
+  "name": "Fade Build Application",
+  "description": "Implementation of the Application interface for Fade Build.",
   "implements_interface": "application",
   "dependencies": [
+    {
+      "name": "fade_entry",
+      "interface_version": {
+        "major": 0,
+        "minor": 0,
+        "revision": 1
+      }
+    }
   ]
 }

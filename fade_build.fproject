@@ -1,16 +1,10 @@
 {
   "name": "Fade Build",
   "description": "Build system generator for the Fade Framework",
+  "entry_module": "entry",
   "version": {
     "major": 0,
     "minor": 0,
     "revision": 1
-  },
-
-  "entry_module_implementation": null,
-
-  "application_module": {
-    "implementation": "fade_build",
-    "parent_implementation": null
   }
 }
