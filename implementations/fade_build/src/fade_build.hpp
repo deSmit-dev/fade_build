@@ -14,7 +14,7 @@ public:
      */
     virtual void Entry(const fade::application::CommandLineArguments& in_args) override;
 
-    virtual const std::string& GetApplicationName() const override;
+    virtual const std::string_view GetApplicationName() const override;
 
 private:
 };

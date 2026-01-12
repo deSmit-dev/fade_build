@@ -1,16 +1,18 @@
 #include "fade_build.hpp"
 
-template <typename T>
-T StringToEnum(const std::string& in_string);
-
-template <typename T>
-std::string EnumToString(const T& in_enum);
-
 // Fade includes
+#include "core/include/containers/dynamic_array.hpp"
 #include "core/include/serialization/input_archive.hpp"
 #include "core/include/serialization/json_input_archive.hpp"
 #include "core/include/logging.hpp"
 #include "core/include/type_definitions.hpp"
+
+// Fade Build includes
+#include "configuration/version.hpp"
+#include "configuration/module/module.hpp"
+#include "configuration/module/module_configuration.hpp"
+#include "configuration/module/module_implementation.hpp"
+#include "configuration/project/project.hpp"
 
 // STL includes
 #include <iostream>
@@ -26,370 +28,6 @@ std::string EnumToString(const T& in_enum);
 #include <unordered_map>
 #include <regex>
 #include <cassert>
-
-namespace fade {
-class OutputArchive
-{
-
-};
-}
-
-// Used, for the time being, to prepare for reflection. 
-// Since we would no longer require to manually write the name of the field with reflection.
-#define ARCHIVE_PARAM(archive, obj, field) \
-if constexpr (std::derived_from<std::remove_reference_t<decltype(archive)>, fade::OutputArchive>) {\
-    in_archive << fade::const_name_value_pair<std::remove_reference_t<decltype(obj.field)>>(#field, &obj.field); \
-} else if constexpr (std::derived_from<std::remove_reference_t<decltype(archive)>, fade::InputArchive>) { \
-    in_archive << fade::name_value_pair<std::remove_reference_t<decltype(obj.field)>>(#field, &obj.field); \
-}
-
-struct Version
-{
-    int major = 0;
-    int minor = 0;
-    int revision = 0;
-
-    std::string ToString() const 
-    {
-        return std::to_string(major) + "." + std::to_string(minor) + "." + std::to_string(revision);
-    }
-
-    bool operator==(const Version& other) const
-    {
-        return major == other.major && minor == other.minor && revision == other.revision;
-    }
-
-    bool operator<(const Version& in_rhs) const
-    {
-        assert(false);
-        return true;    
-    }
-
-    bool operator>(const Version& in_rhs) const
-    {
-        assert(false);
-        return true;
-    }
-};
-
-template <fade::InputArchiveType ArchiveType>
-bool Serialize(ArchiveType& in_archive, Version& in_version)
-{
-    ARCHIVE_PARAM(in_archive, in_version, major)
-    ARCHIVE_PARAM(in_archive, in_version, minor)
-    ARCHIVE_PARAM(in_archive, in_version, revision)
-    return true;
-}
-
-struct ProjectConfiguration
-{
-    // The name of the project
-    std::string name;
-
-    // The description of the project
-    std::string description;
-
-    // The module used that contains the entry point
-    std::string entry_module;
-
-    // The version of the project
-    Version version;
-
-    bool operator==(const ProjectConfiguration& other) const
-    {
-        return name == other.name && version == other.version;
-    }
-};
-
-template <fade::InputArchiveType ArchiveType>
-bool Serialize(ArchiveType& in_archive, ProjectConfiguration& out_project_configuration)
-{
-    ARCHIVE_PARAM(in_archive, out_project_configuration, name)
-    ARCHIVE_PARAM(in_archive, out_project_configuration, description)
-    ARCHIVE_PARAM(in_archive, out_project_configuration, entry_module)
-    ARCHIVE_PARAM(in_archive, out_project_configuration, version)
-
-    return true;
-}
-
-struct ModuleDependency
-{
-    ModuleDependency() = default;
-    ModuleDependency(ModuleDependency&& in_other) = default;
-
-    // Name of the module
-    std::string name;
-
-    // Optional specific implementation of the interface
-    std::string implementation;
-
-    // Version of the module's includes
-    std::unique_ptr<Version> include_version;
-
-    // Version of the module's interface
-    std::unique_ptr<Version> interface_version;
-};
-
-template <fade::InputArchiveType ArchiveType>
-bool Serialize(ArchiveType& in_archive, ModuleDependency& out_module_dependency)
-{
-    ARCHIVE_PARAM(in_archive, out_module_dependency, name)
-    ARCHIVE_PARAM(in_archive, out_module_dependency, include_version)
-    ARCHIVE_PARAM(in_archive, out_module_dependency, interface_version)
-
-    return true;
-}
-
-
-struct ModuleInterfaceConfiguration
-{
-    Version version;
-};
-
-template <fade::InputArchiveType ArchiveType>
-bool Serialize(ArchiveType& in_archive, ModuleInterfaceConfiguration& in_out_module_interface_config)
-{
-    ARCHIVE_PARAM(in_archive, in_out_module_interface_config, version);
-    return true;
-}
-
-struct ModuleIncludeConfiguration
-{
-    Version version;
-};
-
-template <fade::InputArchiveType ArchiveType>
-bool Serialize(ArchiveType& in_archive, ModuleIncludeConfiguration& in_out_module_include_config)
-{    
-    ARCHIVE_PARAM(in_archive, in_out_module_include_config, version);
-    return true;
-}
-
-/**
- * Module Configuration
- * 
- * Some basic metadata to describe the module.
- */
-struct ModuleMetadata
-{
-    ModuleMetadata() = default;
-    ModuleMetadata(const ModuleMetadata& in_rhs) = delete;
-    ModuleMetadata(ModuleMetadata&& in_rhs) = default;
-
-    ModuleMetadata& operator=(const ModuleMetadata& in_rhs) = delete;
-    ModuleMetadata& operator=(ModuleMetadata&& in_rhs) = default;
-
-    // The name of the module
-    std::string name;
-    // The description of the module
-    std::string description;
-    // The optional interface metadata of this module
-    std::unique_ptr<ModuleInterfaceConfiguration> interface_config;
-    // The optional source metadata of this module
-    std::unique_ptr<ModuleIncludeConfiguration> include_config;
-    // Dependencies for this module
-    std::vector<ModuleDependency> dependencies;
-
-    // Whether this module implements the main function
-    bool implements_main = false;
-    /**
-     * Whether this module has platform specific implementations
-     * This means, if the user doesn't specify a specific implementation (that corresponds with the target platform), the system will automatically find the right one
-     */
-    bool has_platform_implementations = false;
-};
-
-template <fade::InputArchiveType ArchiveType>
-bool Serialize(ArchiveType& in_archive, ModuleMetadata& out_module_metadata)
-{
-    ARCHIVE_PARAM(in_archive, out_module_metadata, name)
-    ARCHIVE_PARAM(in_archive, out_module_metadata, description)
-    ARCHIVE_PARAM(in_archive, out_module_metadata, interface_config)
-    ARCHIVE_PARAM(in_archive, out_module_metadata, include_config)
-    ARCHIVE_PARAM(in_archive, out_module_metadata, dependencies)
-    ARCHIVE_PARAM(in_archive, out_module_metadata, implements_main)
-    ARCHIVE_PARAM(in_archive, out_module_metadata, has_platform_implementations)
-    return true;
-}
-
-enum class Platform : fade::uint8
-{
-    kUnknown,
-    kLinux,
-    kWindows,
-    kMac,
-    kAndroid
-};
-
-template <>
-Platform StringToEnum(const std::string& in_string)
-{
-    if (in_string == "linux") return Platform::kLinux;
-    if (in_string == "windows") return Platform::kWindows;
-    if (in_string == "mac") return Platform::kMac;
-    if (in_string == "android") return Platform::kAndroid;
-
-    return Platform::kUnknown;
-}
-
-template <>
-std::string EnumToString(const Platform& in_platform)
-{
-    switch (in_platform)
-    {
-        case Platform::kLinux:
-            return std::string("linux");
-        case Platform::kWindows:
-            return std::string("windows");
-        case Platform::kMac:
-            return std::string("mac");
-        case Platform::kAndroid:
-            return std::string("android");
-        case Platform::kUnknown:
-            break;
-    }
-
-    return std::string("unknown");
-}
-
-struct ModuleImplementationMetadata
-{
-    ModuleImplementationMetadata() = default;
-    ModuleImplementationMetadata(ModuleImplementationMetadata&& in_other) = default;
-
-    // Name of the implementation
-    std::string name;
-
-    // Description of the implementation
-    std::string description;
-
-    // What interface this implements
-    std::string implements_interface;
-
-    // Platform of this implementation
-    Platform platform;
-
-    // Dependencies of this implementation
-    std::vector<ModuleDependency> dependencies;
-};
-
-template <fade::InputArchiveType ArchiveType>
-bool Serialize(ArchiveType& in_archive, ModuleImplementationMetadata& out_module_implementation)
-{
-    ARCHIVE_PARAM(in_archive, out_module_implementation, name)
-    ARCHIVE_PARAM(in_archive, out_module_implementation, description)
-    ARCHIVE_PARAM(in_archive, out_module_implementation, implements_interface)
-    ARCHIVE_PARAM(in_archive, out_module_implementation, platform)
-    ARCHIVE_PARAM(in_archive, out_module_implementation, dependencies);
-
-    return true;
-}
-
-struct ModuleImplementation
-{
-    ModuleImplementationMetadata configuration;
-    std::filesystem::path path;
-
-};
-
-struct ModuleInterface
-{
-    std::vector<ModuleImplementation> implementations;
-};
-
-/**
- * Fade Framework Module
- * 
- * A module is the main building block of the Fade Framework.
- * A module may or may not contain an interface, which must be implemented by one or more implementations.
- * A module may also contain only source and/or include files, this is especially useful for modules that contain third party code since they usually come in this format.
- * 
- * The implementations mentioned previously may be provided by the framework, or implemented by the end user. But must adhere to the provided interface.
- */
-struct Module 
-{
-    Module() = default;
-    Module(const Module& in_rhs) = delete;
-    Module(Module&& in_rhs)
-    {
-        module_file_name = std::move(in_rhs.module_file_name);
-        configuration = std::move(in_rhs.configuration);        
-    }
-
-    Module& operator=(const Module& in_rhs) = delete;
-    Module& operator=(Module&& in_rhs)
-    {
-        module_file_name = std::move(in_rhs.module_file_name);
-        configuration = std::move(in_rhs.configuration);
-        return *this;
-    }
-
-    /**
-     * Name of the module file
-     * 
-     * The string used to match implementations to modules.
-     */
-    std::string module_file_name;
-
-    /**
-     * Path to this module
-     */
-    std::filesystem::path module_path;
-
-    /**
-     * Module configuration
-     */
-    ModuleMetadata configuration;
-};
-
-/**
- * Fade Framework Module Configuration Entry
- * 
- * Contains information about this specific module and its implementation
- */
-struct ModuleConfigurationEntry
-{
-    std::string module_name;
-
-    std::string module_path;
-
-    std::string implementation_name;
-
-    std::string implementation_path;
-};
-
-template <fade::InputArchiveType ArchiveType>
-bool Serialize(ArchiveType& in_archive, ModuleConfigurationEntry& out_module_configuration_entry)
-{
-    ARCHIVE_PARAM(in_archive, out_module_configuration_entry, module_name)
-    ARCHIVE_PARAM(in_archive, out_module_configuration_entry, module_path);
-    ARCHIVE_PARAM(in_archive, out_module_configuration_entry, implementation_name);
-    ARCHIVE_PARAM(in_archive, out_module_configuration_entry, implementation_path);
-
-    return true;
-}
-
-/**
- *  List of modules, their implementations and both paths
- */
-struct ModuleConfiguration
-{
-    std::vector<ModuleConfigurationEntry> configured_modules;
-
-    bool IsValid() const
-    {
-        bool bValid = false;
-        return bValid;
-    }
-};
-
-template <fade::InputArchiveType ArchiveType>
-bool Serialize(ArchiveType& in_archive, ModuleConfiguration& out_module_configuration)
-{
-    ARCHIVE_PARAM(in_archive, out_module_configuration, configured_modules)
-
-    return true;
-}
 
 bool GetProjectConfiguration(const fade::application::CommandLineArguments& in_args, ProjectConfiguration& out_project_configuration, std::filesystem::path& out_project_path)
 {
@@ -465,7 +103,7 @@ bool GetProjectConfiguration(const fade::application::CommandLineArguments& in_a
     return false;
 }
 
-bool GetProjectImplementations(std::filesystem::path in_project_path, std::vector<ModuleImplementation>& out_project_implementations)
+bool GetProjectImplementations(std::filesystem::path in_project_path, fade::DynamicArray<ModuleImplementation>& out_project_implementations)
 {
     in_project_path.append("implementations");
     if (!std::filesystem::exists(in_project_path))
@@ -473,7 +111,7 @@ bool GetProjectImplementations(std::filesystem::path in_project_path, std::vecto
         return false;
     }
 
-    auto TryFindModuleImplementation = [](const std::filesystem::path& in_directory, std::vector<ModuleImplementation>& out_project_implementations)
+    auto TryFindModuleImplementation = [](const std::filesystem::path& in_directory, fade::DynamicArray<ModuleImplementation>& out_project_implementations)
     {
         for (const std::filesystem::directory_entry& dir_entry : std::filesystem::directory_iterator(in_directory))
         {
@@ -514,7 +152,7 @@ bool GetProjectImplementations(std::filesystem::path in_project_path, std::vecto
     return out_project_implementations.size() > 0;
 }
 
-bool GetFadeModuleDirectories(const fade::application::CommandLineArguments& in_args, std::vector<std::filesystem::path>& out_fade_module_dirs)
+bool GetFadeModuleDirectories(const fade::application::CommandLineArguments& in_args, fade::DynamicArray<std::filesystem::path>& out_fade_module_dirs)
 {
     if (char* fade_module_dir_env = std::getenv("FADE_MODULE_DIR"); fade_module_dir_env != nullptr)
     {
@@ -565,7 +203,7 @@ bool FindModuleInDirectory(const std::filesystem::path& in_module_dir, std::file
     return false;
 }
 
-bool GatherFadeModules(const std::vector<std::filesystem::path>& in_fade_module_dirs, std::vector<Module>& out_found_modules)
+bool GatherFadeModules(const fade::DynamicArray<std::filesystem::path>& in_fade_module_dirs, fade::DynamicArray<Module>& out_found_modules)
 {
     for (const std::filesystem::path& module_dir : in_fade_module_dirs)
     {
@@ -586,6 +224,7 @@ bool GatherFadeModules(const std::vector<std::filesystem::path>& in_fade_module_
 
                     Module module;
                     module.module_file_name = dir_entry.path().filename().string();
+                    module.module_path = dir_entry.path();
                     if (!Serialize(json_input_archive, module.configuration))
                     {
                         fade::Log<fade::LogLevel::kWarning>("Failed to load module configuration from file at path '{}'. Skipping module.", module_config_path.string());
@@ -601,20 +240,7 @@ bool GatherFadeModules(const std::vector<std::filesystem::path>& in_fade_module_
     return out_found_modules.size() > 0;
 }
 
-namespace fade
-{
-    struct Array
-    {
-        template <typename T, typename A>
-        static void RemoveAtSwap(std::vector<T, A>& in_vector, fade::size_t in_index)
-        {
-            in_vector[in_index] = std::move(in_vector.back());
-            in_vector.erase(in_vector.end());
-        }
-    };
-}
-
-bool GenerateModuleConfigFile(const ProjectConfiguration& in_project_configuration, const std::vector<ModuleImplementation>& in_project_implementations, const std::vector<Module>& in_found_modules, ModuleConfiguration& out_module_configuration)
+bool GenerateModuleConfigFile(const ProjectConfiguration& in_project_configuration, const fade::DynamicArray<ModuleImplementation>& in_project_implementations, const fade::DynamicArray<Module>& in_found_modules, ModuleConfiguration& out_module_configuration)
 {
 
 
@@ -676,7 +302,7 @@ void FadeBuild::Entry(const fade::application::CommandLineArguments& in_args)
     }
     
     // Find implementations for this project
-    std::vector<ModuleImplementation> project_implementations;
+    fade::DynamicArray<ModuleImplementation> project_implementations;
     if (!GetProjectImplementations(project_path, project_implementations))
     {
         fade::Log<fade::LogLevel::kError>("No implementations found in this project.");
@@ -684,7 +310,7 @@ void FadeBuild::Entry(const fade::application::CommandLineArguments& in_args)
     }
 
     // Get the directories where we can find the modules
-    std::vector<std::filesystem::path> fade_module_dirs;
+    fade::DynamicArray<std::filesystem::path> fade_module_dirs;
     if (!GetFadeModuleDirectories(in_args, fade_module_dirs))
     {
         fade::Log<fade::LogLevel::kError>("No fade module directories found.");
@@ -698,7 +324,7 @@ void FadeBuild::Entry(const fade::application::CommandLineArguments& in_args)
     }
 
     // Gather all the modules
-    std::vector<Module> found_modules;
+    fade::DynamicArray<Module> found_modules;
     if (!GatherFadeModules(fade_module_dirs, found_modules))
     {
         fade::Log<fade::LogLevel::kError>("Failed to gather fade modules from specified directories.");
@@ -750,7 +376,7 @@ void FadeBuild::Entry(const fade::application::CommandLineArguments& in_args)
     }
 }
 
-const std::string& FadeBuild::GetApplicationName() const
+const std::string_view FadeBuild::GetApplicationName() const
 {
     static std::string application_string = std::string("Fade Build");
     return application_string;
