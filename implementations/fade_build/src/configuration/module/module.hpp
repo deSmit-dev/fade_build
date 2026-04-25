@@ -4,9 +4,11 @@
 // Fade includes
 #include "core/include/containers/dynamic_array.hpp"
 #include "core/include/serialization/serialization.hpp"
+#include "core/include/serialization/input_archive.hpp"
 
 // Fade Build includes
 #include "configuration/module/module_dependency.hpp"
+#include "configuration/module/module_implementation.hpp"
 #include "configuration/module/module_include_configuration.hpp"
 #include "configuration/module/module_interface_configuration.hpp"
 
@@ -20,28 +22,29 @@
  * 
  * Some basic metadata to describe the module.
  */
-struct ModuleMetadata
+struct ModuleConfiguration
 {
-    ModuleMetadata() = default;
-    ModuleMetadata(const ModuleMetadata& in_rhs) = delete;
-    ModuleMetadata(ModuleMetadata&& in_rhs) = default;
+    ModuleConfiguration() = default;
+    ModuleConfiguration(const ModuleConfiguration& in_rhs) = delete;
+    ModuleConfiguration(ModuleConfiguration&& in_rhs) = default;
 
-    ModuleMetadata& operator=(const ModuleMetadata& in_rhs) = delete;
-    ModuleMetadata& operator=(ModuleMetadata&& in_rhs) = default;
+    ModuleConfiguration& operator=(const ModuleConfiguration& in_rhs) = delete;
+    ModuleConfiguration& operator=(ModuleConfiguration&& in_rhs) = default;
 
     // The name of the module
     std::string name;
     // The description of the module
     std::string description;
     // The optional interface metadata of this module
-    std::unique_ptr<ModuleInterfaceConfiguration> interface_config;
+    std::unique_ptr<Version> interface_version;
     // The optional source metadata of this module
-    std::unique_ptr<ModuleIncludeConfiguration> include_config;
+    std::unique_ptr<Version> include_version;
     // Dependencies for this module
     fade::DynamicArray<ModuleDependency> dependencies;
 
     // Whether this module implements the main function
     bool implements_main = false;
+
     /**
      * Whether this module has platform specific implementations
      * This means, if the user doesn't specify a specific implementation (that corresponds with the target platform), the system will automatically find the right one
@@ -50,12 +53,12 @@ struct ModuleMetadata
 };
 
 template <fade::InputArchiveType ArchiveType>
-bool Serialize(ArchiveType& in_archive, ModuleMetadata& out_module_metadata)
+bool Serialize(ArchiveType& in_archive, ModuleConfiguration& out_module_metadata)
 {
     ARCHIVE_PARAM(in_archive, out_module_metadata, name)
     ARCHIVE_PARAM(in_archive, out_module_metadata, description)
-    ARCHIVE_PARAM(in_archive, out_module_metadata, interface_config)
-    ARCHIVE_PARAM(in_archive, out_module_metadata, include_config)
+    ARCHIVE_PARAM(in_archive, out_module_metadata, interface_version)
+    ARCHIVE_PARAM(in_archive, out_module_metadata, include_version)
     ARCHIVE_PARAM(in_archive, out_module_metadata, dependencies)
     ARCHIVE_PARAM(in_archive, out_module_metadata, implements_main)
     ARCHIVE_PARAM(in_archive, out_module_metadata, has_platform_implementations)
@@ -85,7 +88,7 @@ struct Module
      * 
      * The string used to match implementations to modules.
      */
-    std::string module_file_name;
+    std::string filename;
 
     /**
      * Path to this module
@@ -95,7 +98,12 @@ struct Module
     /**
      * Module configuration
      */
-    ModuleMetadata configuration;
+    ModuleConfiguration configuration;
+
+    /**
+     * Implementations for this module
+     */
+    fade::DynamicArray<ModuleImplementation> implementations;
 };
 
 #endif // FADE_BUILD_CONFIGURATION_MODULE_MODULE_HPP_

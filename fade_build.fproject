@@ -1,10 +1,19 @@
 {
-  "name": "Fade Build",
+  "name": "fade_build",
+  "display_name": "Fade Build",
   "description": "Build system generator for the Fade Framework",
   "entry_module": "entry",
   "version": {
     "major": 0,
     "minor": 0,
     "revision": 1
+  },
+  "chosen_implementations": [
+    { "module": "fade_entry", "implementation": "application_entry"},
+    { "module": "application", "implementation": "fade_build"}
+  ],
+  "override_implementation_descriptions": [],
+  "test_module": {
+    "module_name": "googletest"
   }
 }

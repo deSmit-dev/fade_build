@@ -31,9 +31,10 @@ struct ModuleDependency
 template <fade::InputArchiveType ArchiveType>
 bool Serialize(ArchiveType& in_archive, ModuleDependency& out_module_dependency)
 {
-    ARCHIVE_PARAM(in_archive, out_module_dependency, name)
-    ARCHIVE_PARAM(in_archive, out_module_dependency, include_version)
-    ARCHIVE_PARAM(in_archive, out_module_dependency, interface_version)
+    //ARCHIVE_PARAM(in_archive, out_module_dependency, name)
+    //ARCHIVE_PARAM(in_archive, out_module_dependency, implementation)
+    //ARCHIVE_PARAM(in_archive, out_module_dependency, include_version)
+    //ARCHIVE_PARAM(in_archive, out_module_dependency, interface_version)
 
     return true;
 }

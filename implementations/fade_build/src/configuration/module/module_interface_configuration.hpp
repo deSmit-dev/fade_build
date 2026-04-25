@@ -15,7 +15,7 @@ struct ModuleInterfaceConfiguration
 template <fade::InputArchiveType ArchiveType>
 bool Serialize(ArchiveType& in_archive, ModuleInterfaceConfiguration& out_module_interface_config)
 {
-    ARCHIVE_PARAM(in_archive, out_module_interface_config, version);
+    //ARCHIVE_PARAM(in_archive, out_module_interface_config, version);
     return true;
 }
 
